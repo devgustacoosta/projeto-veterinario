@@ -1,16 +1,44 @@
-# React + Vite
+# Projeto Veterinário (Frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este é o frontend do sistema de gerenciamento para clínicas veterinárias. A aplicação oferece painéis distintos para tutores de pets e médicos veterinários, facilitando o agendamento de consultas e o acompanhamento do histórico médico.
 
-Currently, two official plugins are available:
+## 🌐 Acesso Online
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+O projeto está disponível em ambiente de produção e pode ser acessado através do link:
+[https://projeto-veterinario-kappa.vercel.app](https://projeto-veterinario-kappa.vercel.app)
 
-## React Compiler
+## 🚀 Tecnologias Utilizadas
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19**
+- **Vite**
+- **Tailwind CSS 4**
+- **React Router DOM**
+- **Lucide React** (Ícones)
+- **Context API** (Gerenciamento de estado global para Autenticação e Notificações)
 
-## Expanding the ESLint configuration
+## 🌟 Funcionalidades
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Área do Tutor
+- **Meus Pets:** Cadastro, edição e remoção dos perfis dos pets.
+- **Agendamentos:** Marcação de novas consultas, visualização do histórico, cancelamento e remarcação de horários.
+
+### Painel do Veterinário
+- **Agenda:** Controle de horários e registro de atendimentos (diagnóstico, prescrição, observações e peso).
+- **Pacientes:** Visualização de todos os pacientes e acesso ao histórico clínico detalhado.
+- **Configurações:** Definição de horários de atendimento padrão e bloqueio de agendas (férias, imprevistos, etc.).
+
+## 📋 Pré-requisitos
+
+Antes de iniciar, certifique-se de ter instalado em sua máquina:
+- [Node.js](https://nodejs.org/en/) (versão 18 ou superior)
+- npm, yarn ou pnpm
+  
+## 🔧 Como executar o projeto localmente
+
+Siga os passos abaixo para baixar e rodar a aplicação na sua máquina:
+
+1. **Clone o repositório:** `git clone <url-do-repositorio>`
+2. **Acesse a pasta do projeto:** `cd projeto-veterinario`
+3. **Instale as dependências:** `npm install`
+4. **Inicie o servidor de desenvolvimento:** `npm run dev`
+5. **Acesse no navegador:** A aplicação estará rodando no endereço `http://localhost:5173`.
