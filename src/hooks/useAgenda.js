@@ -1,126 +1,53 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-
-const sanitizePayloadDate = (data) => {
-  if (!data) return data;
-  const payload = { ...data };
-
-  if (payload.data_hora) {
-    payload.data_hora = payload.data_hora.replace("T", " ");
-    if (payload.data_hora.length === 16) {
-      payload.data_hora += ":00";
-    }
-  }
-
-  return payload;
-};
-
-export const useAgenda = (filtroAtivo) => {
-  const { token } = useAuth();
+import { useCallback } from "react";
+import { useCollection } from "./useCollection";
+import { useToast } from "../context/toast";
+import { normalizeDates, requireArray } from "../lib/api";
+export function useAgenda(filtro) {
+  const {
+    items: agenda,
+    loading,
+    error,
+    reload,
+    request,
+  } = useCollection(`/vet/agenda?filtro=${encodeURIComponent(filtro)}`);
+  const patients = useCollection("/vet/todos-pets");
+  const petsETutores = patients.items;
   const { addToast } = useToast();
-  const [agenda, setAgenda] = useState([]);
-  const [petsETutores, setPetsETutores] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const apiUrl = import.meta.env.VITE_API_URL;
-
-  const fetchAgenda = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `${apiUrl}/vet/agenda?filtro=${filtroAtivo}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (!response.ok) throw new Error("Erro na requisição da agenda");
-      setAgenda(await response.json());
-    } catch {
-      addToast("Erro ao carregar a agenda", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [token, filtroAtivo, apiUrl, addToast]);
-
-  const fetchPetsTutores = useCallback(async () => {
-    try {
-      const response = await fetch(`${apiUrl}/vet/todos-pets`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        setPetsETutores(await response.json());
-      }
-    } catch {
-      console.error("Erro ao carregar lista de pets");
-    }
-  }, [apiUrl, token]);
-
-  useEffect(() => {
-    fetchAgenda();
-    fetchPetsTutores();
-  }, [fetchAgenda, fetchPetsTutores]);
-
   const fetchMinhaDisponibilidade = useCallback(
-    async (data) => {
-      try {
-        const response = await fetch(
-          `${apiUrl}/vet/disponibilidade?data=${data}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!response.ok) return [];
-        return await response.json();
-      } catch {
-        return [];
-      }
-    },
-    [apiUrl, token]
+    async (data, signal) =>
+      requireArray(
+        await request(`/vet/disponibilidade?data=${encodeURIComponent(data)}`, {
+          signal,
+        }),
+      ),
+    [request],
   );
-
   const addAgendamentoVet = async (data) => {
-    const payload = sanitizePayloadDate(data);
-
-    const response = await fetch(`${apiUrl}/vet/agendamentos`, {
+    await request("/vet/agendamentos", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
+      body: normalizeDates(data),
     });
-
-    if (response.status === 409) throw new Error("Horário já ocupado");
-    if (!response.ok) throw new Error("Erro ao salvar consulta");
-
-    await fetchAgenda();
-    addToast("Consulta criada com sucesso!", "success");
+    await reload();
+    addToast("Consulta criada!", "success");
     return true;
   };
-
-  const registrarAtendimento = async (id, dados) => {
-    const response = await fetch(`${apiUrl}/vet/agendamentos/${id}/historico`, {
+  const registrarAtendimento = async (id, data) => {
+    await request(`/vet/agendamentos/${id}/historico`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(dados),
+      body: data,
     });
-
-    if (!response.ok) throw new Error("Erro ao registrar atendimento");
-
-    await fetchAgenda();
-    addToast("Histórico registrado!", "success");
+    await reload();
+    addToast("Atendimento registrado!", "success");
     return true;
   };
-
   return {
     agenda,
-    loading,
+    loading: loading || patients.loading,
+    error: error || patients.error,
+    reload: () => Promise.all([reload(), patients.reload()]),
     petsETutores,
     fetchMinhaDisponibilidade,
     addAgendamentoVet,
     registrarAtendimento,
   };
-};
+}

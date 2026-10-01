@@ -1,7 +1,6 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import Modal from "./Modal";
-
-const ConfirmModal = ({
+export default function ConfirmModal({
   isOpen,
   onClose,
   onConfirm,
@@ -10,33 +9,61 @@ const ConfirmModal = ({
   confirmText = "Confirmar",
   cancelText = "Cancelar",
   isDestructive = false,
-}) => {
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (isOpen) setError("");
+  }, [isOpen]);
+  const confirm = async () => {
+    if (pending) return;
+    setPending(true);
+    setError("");
+    try {
+      const result = await onConfirm();
+      if (result !== false) onClose();
+      else
+        setError(
+          "A operação não foi concluída. Confira os dados e tente novamente.",
+        );
+    } catch (err) {
+      setError(err.message || "Não foi possível concluir a operação.");
+    } finally {
+      setPending(false);
+    }
+  };
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="max-w-sm">
-      <p className="text-slate-600 mb-6 font-medium">{message}</p>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      maxWidth="max-w-sm"
+      busy={pending}
+    >
+      <p className="text-slate-700 mb-6">{message}</p>
+      {error && (
+        <p role="alert" className="text-red-700 mb-4">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-3">
         <button
+          type="button"
+          disabled={pending}
           onClick={onClose}
-          className="px-4 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
+          className="px-4 py-2.5 font-semibold border border-slate-300 rounded-lg"
         >
           {cancelText}
         </button>
         <button
-          onClick={() => {
-            onConfirm();
-            onClose();
-          }}
-          className={`px-4 py-2.5 text-sm font-semibold text-white rounded-lg shadow-sm transition-colors ${
-            isDestructive
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-brand-600 hover:bg-brand-700"
-          }`}
+          type="button"
+          disabled={pending}
+          onClick={confirm}
+          className={`px-4 py-2.5 font-semibold text-white rounded-lg disabled:opacity-60 ${isDestructive ? "bg-red-700" : "bg-brand-600"}`}
         >
-          {confirmText}
+          {pending ? "Aguarde..." : confirmText}
         </button>
       </div>
     </Modal>
   );
-};
-
-export default ConfirmModal;
+}

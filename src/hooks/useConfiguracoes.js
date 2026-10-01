@@ -1,131 +1,37 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-
-export const useConfiguracoes = () => {
-  const { token } = useAuth();
+import { useState } from "react";
+import { useCollection } from "./useCollection";
+import { useToast } from "../context/toast";
+export function useConfiguracoes() {
+  const horarios = useCollection("/vet/horarios");
+  const bloqueios = useCollection("/vet/bloqueios");
   const { addToast } = useToast();
-  const [horarios, setHorarios] = useState([]);
-  const [bloqueios, setBloqueios] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const apiUrl = import.meta.env.VITE_API_URL;
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const [saving, setSaving] = useState(false);
+  const mutate = async (path, method, body, collection) => {
+    setSaving(true);
     try {
-      const [resH, resB] = await Promise.all([
-        fetch(`${apiUrl}/vet/horarios`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiUrl}/vet/bloqueios`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
-
-      if (!resH.ok || !resB.ok) {
-        throw new Error("Erro de requisição aos dados de configuração.");
-      }
-
-      setHorarios(await resH.json());
-      setBloqueios(await resB.json());
-    } catch (error) {
-      addToast("Erro ao carregar configurações", "error");
+      await horarios.request(path, { method, body });
+      await collection.reload();
+      addToast("Configuração atualizada!", "success");
+      return true;
+    } catch (err) {
+      addToast(err.message, "error");
+      return false;
     } finally {
-      setLoading(false);
-    }
-  }, [token, apiUrl, addToast]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const addHorario = async (data) => {
-    try {
-      const response = await fetch(`${apiUrl}/vet/horarios`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro na inserção de horário.");
-      }
-
-      await fetchData();
-      addToast("Horário padrão adicionado!", "success");
-    } catch (error) {
-      addToast("Erro ao adicionar horário", "error");
+      setSaving(false);
     }
   };
-
-  const removeHorario = async (id) => {
-    try {
-      const response = await fetch(`${apiUrl}/vet/horarios/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro ao remover horário.");
-      }
-
-      setHorarios((prev) => prev.filter((h) => h.id !== id));
-      addToast("Horário removido!", "success");
-    } catch (error) {
-      addToast("Erro ao remover horário", "error");
-    }
-  };
-
-  const addBloqueio = async (data) => {
-    try {
-      const response = await fetch(`${apiUrl}/vet/bloqueios`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro na inserção de bloqueio.");
-      }
-
-      await fetchData();
-      addToast("Agenda bloqueada com sucesso!", "success");
-    } catch (error) {
-      addToast("Erro ao processar criação de bloqueio.", "error");
-    }
-  };
-
-  const removeBloqueio = async (id) => {
-    try {
-      const response = await fetch(`${apiUrl}/vet/bloqueios/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro ao remover bloqueio.");
-      }
-
-      setBloqueios((prev) => prev.filter((b) => b.id !== id));
-      addToast("Bloqueio removido!", "success");
-    } catch (error) {
-      addToast("Erro ao remover bloqueio", "error");
-    }
-  };
-
   return {
-    horarios,
-    bloqueios,
-    loading,
-    addHorario,
-    removeHorario,
-    addBloqueio,
-    removeBloqueio,
+    horarios: horarios.items,
+    bloqueios: bloqueios.items,
+    loading: horarios.loading || bloqueios.loading,
+    error: horarios.error || bloqueios.error,
+    saving,
+    reload: () => Promise.all([horarios.reload(), bloqueios.reload()]),
+    addHorario: (data) => mutate("/vet/horarios", "POST", data, horarios),
+    removeHorario: (id) =>
+      mutate(`/vet/horarios/${id}`, "DELETE", undefined, horarios),
+    addBloqueio: (data) => mutate("/vet/bloqueios", "POST", data, bloqueios),
+    removeBloqueio: (id) =>
+      mutate(`/vet/bloqueios/${id}`, "DELETE", undefined, bloqueios),
   };
-};
+}

@@ -1,3 +1,7 @@
+import ProcedimentosAtendimento from "../../components/ProcedimentosAtendimento";
+import { validateItems } from "../../lib/money";
+import { localDate } from "../../lib/api";
+import ErrorState from "../../components/ErrorState";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAgenda } from "../../hooks/useAgenda";
@@ -16,9 +20,15 @@ import ConfirmModal from "../../components/ConfirmModal";
 
 const Agenda = () => {
   const navigate = useNavigate();
+  const [procedimentos, setProcedimentos] = useState([]);
+  const [slotsError, setSlotsError] = useState("");
+  const [registroError, setRegistroError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState("atuais");
   const {
     agenda,
+    error,
+    reload,
     loading,
     petsETutores,
     fetchMinhaDisponibilidade,
@@ -53,10 +63,18 @@ const Agenda = () => {
   });
 
   useEffect(() => {
+    const controller = new AbortController();
     const getSlots = async () => {
+      setAvailableSlots([]);
+      setFormNovo((prev) => ({ ...prev, hora: "" }));
       if (formNovo.data) {
+        setSlotsError("");
         setLoadingSlots(true);
-        const slots = await fetchMinhaDisponibilidade(formNovo.data);
+        const slots = await fetchMinhaDisponibilidade(
+          formNovo.data,
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
         setAvailableSlots(slots);
         setFormNovo((prev) => ({ ...prev, hora: "" }));
         setLoadingSlots(false);
@@ -64,7 +82,13 @@ const Agenda = () => {
         setAvailableSlots([]);
       }
     };
-    getSlots();
+    getSlots().catch((err) => {
+      if (err.name !== "AbortError") {
+        setSlotsError(err.message);
+        setLoadingSlots(false);
+      }
+    });
+    return () => controller.abort();
   }, [formNovo.data, fetchMinhaDisponibilidade]);
 
   const formatarDataHora = (dataString) => {
@@ -82,6 +106,8 @@ const Agenda = () => {
 
   const abrirModal = (ag) => {
     setAgendamentoSelecionado(ag);
+    setProcedimentos([]);
+    setRegistroError("");
     setFormRegistro({
       diagnostico: "",
       prescricao: "",
@@ -99,8 +125,22 @@ const Agenda = () => {
         ? parseFloat(formRegistro.peso_kg)
         : undefined,
     };
-    if (await registrarAtendimento(agendamentoSelecionado.id, dadosTratados)) {
-      setModalAberto(false);
+    setSaving(true);
+    setRegistroError("");
+    try {
+      if (
+        await registrarAtendimento(agendamentoSelecionado.id, {
+          ...dadosTratados,
+          ...(procedimentos.length
+            ? { procedimentos: validateItems(procedimentos) }
+            : {}),
+        })
+      )
+        setModalAberto(false);
+    } catch (err) {
+      setRegistroError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -137,6 +177,7 @@ const Agenda = () => {
 
   return (
     <div className="w-full flex flex-col">
+      {error && <ErrorState message={error} onRetry={reload} />}
       <div className="w-full flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">
@@ -179,7 +220,7 @@ const Agenda = () => {
         ) : agenda.length === 0 ? (
           <div className="bg-white border border-slate-200 border-dashed py-16 flex flex-col items-center justify-center rounded-2xl text-slate-500">
             <div className="bg-slate-50 p-4 rounded-full mb-4">
-              <Calendar size={32} className="text-slate-400" />
+              <Calendar size={32} className="text-slate-600" />
             </div>
             <p className="font-medium">Nenhuma consulta agendada.</p>
           </div>
@@ -195,7 +236,7 @@ const Agenda = () => {
                   <div className="flex items-center md:w-[160px] shrink-0 md:justify-end md:mt-5 mb-1 md:mb-0 relative">
                     <span
                       className={`text-lg md:text-base font-bold tracking-tight md:pr-6 ${
-                        isConcluido ? "text-slate-400" : "text-slate-900"
+                        isConcluido ? "text-slate-600" : "text-slate-900"
                       }`}
                     >
                       {formatarDataHora(ag.data_hora)}
@@ -220,7 +261,7 @@ const Agenda = () => {
                           <div
                             className={`p-1.5 rounded-lg ${
                               isConcluido
-                                ? "bg-slate-100 text-slate-400"
+                                ? "bg-slate-100 text-slate-600"
                                 : "bg-brand-50 text-brand-600"
                             }`}
                           >
@@ -247,13 +288,13 @@ const Agenda = () => {
                     <div className="border-t border-slate-100 pt-4 mt-4 flex flex-col sm:flex-row justify-between gap-4">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm text-slate-600">
-                          <User size={16} className="text-slate-400" />
+                          <User size={16} className="text-slate-600" />
                           <span className="font-semibold text-slate-800">
                             {ag.tutor_nome}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-500">
-                          <Phone size={16} className="text-slate-400" />
+                          <Phone size={16} className="text-slate-600" />
                           {ag.tutor?.telefone || "Não informado"}
                         </div>
                       </div>
@@ -293,15 +334,20 @@ const Agenda = () => {
         title="Novo Agendamento"
         maxWidth="max-w-lg"
       >
+        {slotsError && <ErrorState message={slotsError} />}
         <form
           onSubmit={handleRequestNovoAgendamento}
           className="flex flex-col gap-4"
         >
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700">
+            <label
+              htmlFor="agenda-1"
+              className="text-sm font-bold text-slate-700"
+            >
               Paciente (Tutor - Pet)
             </label>
             <select
+              id="agenda-1"
               value={formNovo.pet_tutor}
               onChange={(e) =>
                 setFormNovo({ ...formNovo, pet_tutor: e.target.value })
@@ -324,10 +370,16 @@ const Agenda = () => {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700">Data</label>
+            <label
+              htmlFor="agenda-2"
+              className="text-sm font-bold text-slate-700"
+            >
+              Data
+            </label>
             <input
+              id="agenda-2"
               type="date"
-              min={new Date().toISOString().split("T")[0]}
+              min={localDate()}
               value={formNovo.data}
               onChange={(e) =>
                 setFormNovo({ ...formNovo, data: e.target.value })
@@ -339,15 +391,15 @@ const Agenda = () => {
 
           {formNovo.data && (
             <div className="flex flex-col gap-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <label className="text-sm font-bold text-slate-700">
+              <p className="text-sm font-bold text-slate-700">
                 Horários Disponíveis
-              </label>
+              </p>
               {loadingSlots ? (
                 <p className="text-sm text-slate-500 font-medium">
                   Buscando horários...
                 </p>
               ) : availableSlots.length === 0 ? (
-                <p className="text-sm text-red-500 font-medium">
+                <p className="text-sm text-red-700 font-medium">
                   Nenhum horário disponível para a data.
                 </p>
               ) : (
@@ -355,6 +407,7 @@ const Agenda = () => {
                   {availableSlots.map((slot) => (
                     <button
                       key={slot}
+                      aria-pressed={formNovo.hora === slot}
                       type="button"
                       onClick={() => setFormNovo({ ...formNovo, hora: slot })}
                       className={`py-2 px-1 rounded-lg border text-sm font-semibold transition-all ${
@@ -372,10 +425,14 @@ const Agenda = () => {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700">
+            <label
+              htmlFor="agenda-3"
+              className="text-sm font-bold text-slate-700"
+            >
               Motivo da Consulta
             </label>
             <textarea
+              id="agenda-3"
               value={formNovo.motivo_consulta}
               onChange={(e) =>
                 setFormNovo({ ...formNovo, motivo_consulta: e.target.value })
@@ -396,7 +453,9 @@ const Agenda = () => {
             </button>
             <button
               type="submit"
-              disabled={!formNovo.data || !formNovo.hora}
+              disabled={
+                !formNovo.data || !formNovo.hora || loadingSlots || !!slotsError
+              }
               className="bg-brand-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-sm hover:bg-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Agendamento
@@ -409,17 +468,23 @@ const Agenda = () => {
         isOpen={modalAberto}
         onClose={() => setModalAberto(false)}
         title="Registrar Atendimento"
+        busy={saving}
         maxWidth="max-w-lg"
       >
+        {registroError && <ErrorState message={registroError} />}
         <p className="text-sm font-medium text-slate-500 mb-4">
           Pet: {agendamentoSelecionado?.pet_nome}
         </p>
         <form onSubmit={handleSubmitRegistro} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700">
+            <label
+              htmlFor="agenda-4"
+              className="text-sm font-bold text-slate-700"
+            >
               Diagnóstico
             </label>
             <input
+              id="agenda-4"
               type="text"
               value={formRegistro.diagnostico}
               onChange={(e) =>
@@ -432,10 +497,14 @@ const Agenda = () => {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700">
+            <label
+              htmlFor="agenda-5"
+              className="text-sm font-bold text-slate-700"
+            >
               Prescrição
             </label>
             <textarea
+              id="agenda-5"
               value={formRegistro.prescricao}
               onChange={(e) =>
                 setFormRegistro({ ...formRegistro, prescricao: e.target.value })
@@ -445,10 +514,14 @@ const Agenda = () => {
             ></textarea>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700">
+            <label
+              htmlFor="agenda-6"
+              className="text-sm font-bold text-slate-700"
+            >
               Observações
             </label>
             <textarea
+              id="agenda-6"
               value={formRegistro.observacoes}
               onChange={(e) =>
                 setFormRegistro({
@@ -461,10 +534,14 @@ const Agenda = () => {
             ></textarea>
           </div>
           <div className="flex flex-col gap-1.5 w-full sm:w-1/3">
-            <label className="text-sm font-bold text-slate-700">
+            <label
+              htmlFor="agenda-7"
+              className="text-sm font-bold text-slate-700"
+            >
               Peso (kg)
             </label>
             <input
+              id="agenda-7"
               type="number"
               step="0.1"
               value={formRegistro.peso_kg}
@@ -474,9 +551,16 @@ const Agenda = () => {
               className="border border-slate-300 rounded-lg py-2.5 px-3 focus:outline-none focus:border-brand-500 w-full"
             />
           </div>
+          {modalAberto && (
+            <ProcedimentosAtendimento
+              items={procedimentos}
+              onChange={setProcedimentos}
+            />
+          )}
           <div className="flex justify-end gap-3 mt-4">
             <button
               type="button"
+              disabled={saving}
               onClick={() => setModalAberto(false)}
               className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
             >
@@ -484,6 +568,7 @@ const Agenda = () => {
             </button>
             <button
               type="submit"
+              disabled={saving}
               className="bg-brand-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-sm hover:bg-brand-700 transition-all"
             >
               Salvar e Concluir
