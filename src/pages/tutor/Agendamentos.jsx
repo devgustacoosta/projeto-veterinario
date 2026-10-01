@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+import ValoresAtendimento from "../../components/ValoresAtendimento";
+import { localDate } from "../../lib/api";
+import ErrorState from "../../components/ErrorState";
+import React, { useState, useEffect, useRef } from "react";
 import { useAgendamentos } from "../../hooks/useAgendamentos";
 import {
   Plus,
@@ -20,9 +23,15 @@ const Agendamentos = () => {
     loading,
     addAgendamento,
     cancelAgendamento,
+    remarcarAgendamento,
+    error,
+    reload,
     fetchHorariosDisponiveis,
   } = useAgendamentos();
 
+  const rescheduleRequest = useRef(0);
+  const [valoresAppointment, setValoresAppointment] = useState(null);
+  const [slotsError, setSlotsError] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [rescheduleId, setRescheduleId] = useState(null);
 
@@ -50,13 +59,19 @@ const Agendamentos = () => {
   const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchSlots = async () => {
+      setAvailableSlots([]);
+      setFormData((prev) => ({ ...prev, hora: "" }));
       if (formData.veterinario_id && formData.data) {
+        setSlotsError("");
         setLoadingSlots(true);
         const slots = await fetchHorariosDisponiveis(
           formData.veterinario_id,
-          formData.data
+          formData.data,
+          controller.signal,
         );
+        if (controller.signal.aborted) return;
         setAvailableSlots(slots);
         setFormData((prev) => ({ ...prev, hora: "" }));
         setLoadingSlots(false);
@@ -64,17 +79,35 @@ const Agendamentos = () => {
         setAvailableSlots([]);
       }
     };
-    fetchSlots();
+    fetchSlots().catch((err) => {
+      if (err.name !== "AbortError") {
+        setSlotsError(err.message);
+        setLoadingSlots(false);
+      }
+    });
+    return () => controller.abort();
   }, [formData.veterinario_id, formData.data, fetchHorariosDisponiveis]);
 
   const handleRescheduleDateChange = async (vetId, newDate) => {
+    const requestId = ++rescheduleRequest.current;
+    setRescheduleSlots([]);
     setRescheduleDate(newDate);
     setRescheduleTime("");
     if (newDate) {
       setLoadingRescheduleSlots(true);
-      const slots = await fetchHorariosDisponiveis(vetId, newDate);
-      setRescheduleSlots(slots);
-      setLoadingRescheduleSlots(false);
+      setSlotsError("");
+      try {
+        const slots = await fetchHorariosDisponiveis(vetId, newDate);
+        if (requestId === rescheduleRequest.current) setRescheduleSlots(slots);
+      } catch (err) {
+        if (requestId === rescheduleRequest.current) {
+          setRescheduleSlots([]);
+          setSlotsError(err.message);
+        }
+      } finally {
+        if (requestId === rescheduleRequest.current)
+          setLoadingRescheduleSlots(false);
+      }
     } else {
       setRescheduleSlots([]);
     }
@@ -125,7 +158,7 @@ const Agendamentos = () => {
     });
   };
 
-  const handleRequestReschedule = (ag_id, vet_id) => {
+  const handleRequestReschedule = (ag_id) => {
     if (!rescheduleDate || !rescheduleTime) return;
 
     setConfirmDialog({
@@ -137,20 +170,8 @@ const Agendamentos = () => {
         .join("/")} às ${rescheduleTime}?`,
       isDestructive: false,
       action: async () => {
-        const token = localStorage.getItem("access_token");
-        const apiUrl = import.meta.env.VITE_API_URL;
-
-        await fetch(`${apiUrl}/tutor/agendamentos/${ag_id}/remarcar`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            nova_data_hora: `${rescheduleDate} ${rescheduleTime}:00`,
-          }),
-        });
-        window.location.reload();
+        await remarcarAgendamento(ag_id, `${rescheduleDate} ${rescheduleTime}`);
+        setRescheduleId(null);
       },
     });
   };
@@ -169,6 +190,7 @@ const Agendamentos = () => {
 
   return (
     <div className="w-full flex flex-col items-start animate-in fade-in duration-300">
+      {error && <ErrorState message={error} onRetry={reload} />}
       <div className="w-full max-w-4xl flex justify-between items-end mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">
@@ -186,6 +208,7 @@ const Agendamentos = () => {
         </button>
       </div>
 
+      {slotsError && <ErrorState message={slotsError} />}
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
@@ -195,10 +218,14 @@ const Agendamentos = () => {
         <form onSubmit={handleRequestSubmit} className="flex flex-col gap-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="flex flex-col gap-1.5">
-              <label className="text-slate-700 font-medium text-sm">
+              <label
+                htmlFor="agendamentos-1"
+                className="text-slate-700 font-medium text-sm"
+              >
                 Qual pet?
               </label>
               <select
+                id="agendamentos-1"
                 value={formData.pet_id}
                 onChange={(e) =>
                   setFormData({ ...formData, pet_id: e.target.value })
@@ -217,10 +244,14 @@ const Agendamentos = () => {
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-slate-700 font-medium text-sm">
+              <label
+                htmlFor="agendamentos-2"
+                className="text-slate-700 font-medium text-sm"
+              >
                 Veterinário
               </label>
               <select
+                id="agendamentos-2"
                 value={formData.veterinario_id}
                 onChange={(e) =>
                   setFormData({ ...formData, veterinario_id: e.target.value })
@@ -240,10 +271,16 @@ const Agendamentos = () => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-slate-700 font-medium text-sm">Data</label>
+              <label
+                htmlFor="agendamentos-3"
+                className="text-slate-700 font-medium text-sm"
+              >
+                Data
+              </label>
               <input
+                id="agendamentos-3"
                 type="date"
-                min={new Date().toISOString().split("T")[0]}
+                min={localDate()}
                 value={formData.data}
                 onChange={(e) =>
                   setFormData({ ...formData, data: e.target.value })
@@ -256,15 +293,15 @@ const Agendamentos = () => {
 
           {formData.veterinario_id && formData.data && (
             <div className="flex flex-col gap-2 mt-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <label className="text-slate-700 font-medium text-sm mb-1">
+              <p className="text-slate-700 font-medium text-sm mb-1">
                 Horários Disponíveis
-              </label>
+              </p>
               {loadingSlots ? (
                 <p className="text-sm text-slate-500 font-medium">
                   Buscando horários...
                 </p>
               ) : availableSlots.length === 0 ? (
-                <p className="text-sm text-red-500 font-medium">
+                <p className="text-sm text-red-700 font-medium">
                   Nenhum horário disponível para o dia selecionado.
                 </p>
               ) : (
@@ -272,6 +309,7 @@ const Agendamentos = () => {
                   {availableSlots.map((slot) => (
                     <button
                       key={slot}
+                      aria-pressed={formData.hora === slot}
                       type="button"
                       onClick={() => setFormData({ ...formData, hora: slot })}
                       className={`py-2 px-1 rounded-lg border text-sm font-semibold transition-all ${
@@ -289,10 +327,14 @@ const Agendamentos = () => {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-slate-700 font-medium text-sm">
+            <label
+              htmlFor="agendamentos-4"
+              className="text-slate-700 font-medium text-sm"
+            >
               Motivo da consulta
             </label>
             <textarea
+              id="agendamentos-4"
               value={formData.motivo_consulta}
               onChange={(e) =>
                 setFormData({ ...formData, motivo_consulta: e.target.value })
@@ -313,7 +355,9 @@ const Agendamentos = () => {
             </button>
             <button
               type="submit"
-              disabled={!formData.data || !formData.hora}
+              disabled={
+                !formData.data || !formData.hora || loadingSlots || !!slotsError
+              }
               className="bg-brand-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-sm hover:bg-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirmar Agendamento
@@ -326,7 +370,7 @@ const Agendamentos = () => {
         {agendamentos.length === 0 ? (
           <div className="bg-white border border-slate-200 border-dashed py-16 flex flex-col items-center justify-center rounded-2xl text-slate-500">
             <div className="bg-slate-50 p-4 rounded-full mb-4">
-              <CalendarIcon size={32} className="text-slate-400" />
+              <CalendarIcon size={32} className="text-slate-600" />
             </div>
             <p className="font-medium">Nenhum agendamento encontrado.</p>
           </div>
@@ -335,7 +379,7 @@ const Agendamentos = () => {
             const { data, hora } = formatDateTime(ag.data_hora);
             const isCancelado = ag.status === "cancelado";
             const isAgendado = ["pendente", "confirmado", "remarcado"].includes(
-              ag.status
+              ag.status,
             );
 
             return (
@@ -355,7 +399,7 @@ const Agendamentos = () => {
                   >
                     <span
                       className={`text-xs font-bold uppercase tracking-wider mb-1 ${
-                        isCancelado ? "text-slate-400" : "text-brand-600"
+                        isCancelado ? "text-slate-600" : "text-brand-600"
                       }`}
                     >
                       {data}
@@ -368,7 +412,7 @@ const Agendamentos = () => {
                       <Clock
                         size={18}
                         className={
-                          isCancelado ? "text-slate-400" : "text-brand-500"
+                          isCancelado ? "text-slate-600" : "text-brand-500"
                         }
                       />
                       {hora}
@@ -385,15 +429,15 @@ const Agendamentos = () => {
                           isCancelado
                             ? "bg-red-50 text-red-600"
                             : isAgendado
-                            ? "bg-amber-50 text-amber-600"
-                            : "bg-emerald-50 text-emerald-600"
+                              ? "bg-amber-50 text-amber-800"
+                              : "bg-emerald-50 text-emerald-800"
                         }`}
                       >
                         {ag.status}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
-                      <User size={14} className="text-slate-400" />{" "}
+                      <User size={14} className="text-slate-600" />{" "}
                       {ag.veterinario_nome}
                     </div>
                     <p className="text-sm text-slate-500 line-clamp-1">
@@ -402,6 +446,15 @@ const Agendamentos = () => {
                   </div>
                 </div>
 
+                {ag.status === "concluido" && (
+                  <button
+                    type="button"
+                    onClick={() => setValoresAppointment(ag)}
+                    className="text-brand-700 font-semibold border border-brand-200 rounded-lg px-4 py-2"
+                  >
+                    Ver valores
+                  </button>
+                )}
                 {isAgendado && rescheduleId !== ag.id && (
                   <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
                     <button
@@ -432,12 +485,13 @@ const Agendamentos = () => {
                     <div className="flex flex-col sm:flex-row gap-3">
                       <input
                         type="date"
-                        min={new Date().toISOString().split("T")[0]}
+                        min={localDate()}
+                        aria-label="Nova data da consulta"
                         value={rescheduleDate}
                         onChange={(e) =>
                           handleRescheduleDateChange(
                             ag.veterinario_id,
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         className="border border-slate-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-brand-500 bg-white min-w-[140px]"
@@ -449,10 +503,11 @@ const Agendamentos = () => {
                         </div>
                       ) : (
                         <select
+                          aria-label="Novo horário da consulta"
                           value={rescheduleTime}
                           onChange={(e) => setRescheduleTime(e.target.value)}
                           disabled={rescheduleSlots.length === 0}
-                          className="border border-slate-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-brand-500 bg-white min-w-[140px] disabled:bg-slate-100 disabled:text-slate-400"
+                          className="border border-slate-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-brand-500 bg-white min-w-[140px] disabled:bg-slate-100 disabled:text-slate-600"
                         >
                           <option value="">
                             {rescheduleDate && rescheduleSlots.length === 0
@@ -473,7 +528,12 @@ const Agendamentos = () => {
                         onClick={() =>
                           handleRequestReschedule(ag.id, ag.veterinario_id)
                         }
-                        disabled={!rescheduleDate || !rescheduleTime}
+                        disabled={
+                          !rescheduleDate ||
+                          !rescheduleTime ||
+                          loadingRescheduleSlots ||
+                          !!slotsError
+                        }
                         className="flex-1 bg-brand-600 text-white py-2.5 px-4 text-sm rounded-lg font-semibold hover:bg-brand-700 disabled:opacity-50 transition-colors shadow-sm"
                       >
                         Salvar
@@ -497,6 +557,12 @@ const Agendamentos = () => {
         )}
       </div>
 
+      {valoresAppointment && (
+        <ValoresAtendimento
+          appointment={valoresAppointment}
+          onClose={() => setValoresAppointment(null)}
+        />
+      )}
       <ConfirmModal
         isOpen={confirmDialog.isOpen}
         onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}

@@ -1,3 +1,4 @@
+import ErrorState from "../../components/ErrorState";
 import React, { useState } from "react";
 import { usePets } from "../../hooks/usePets";
 import { Plus, Trash2, PawPrint, Edit2 } from "lucide-react";
@@ -6,7 +7,18 @@ import Modal from "../../components/Modal";
 import ConfirmModal from "../../components/ConfirmModal";
 
 const Pets = () => {
-  const { pets, loading, addPet, updatePet, deletePet } = usePets();
+  const {
+    pets,
+    loading,
+    error,
+    reload,
+    saving,
+    mutationError,
+    clearMutationError,
+    addPet,
+    updatePet,
+    deletePet,
+  } = usePets();
   const [modalPet, setModalPet] = useState({
     open: false,
     mode: "create",
@@ -25,6 +37,7 @@ const Pets = () => {
   });
 
   const handleOpenModal = (mode, pet = null) => {
+    clearMutationError();
     setModalPet({ open: true, mode, data: pet });
     setFormData(
       pet
@@ -41,7 +54,7 @@ const Pets = () => {
             raca: "",
             data_nasc: "",
             sexo: "desconhecido",
-          }
+          },
     );
   };
 
@@ -63,7 +76,7 @@ const Pets = () => {
 
   const handleDelete = async () => {
     if (confirmDialog.id) {
-      await deletePet(confirmDialog.id);
+      return await deletePet(confirmDialog.id);
     }
   };
 
@@ -71,6 +84,7 @@ const Pets = () => {
 
   return (
     <div className="w-full flex flex-col items-start animate-in fade-in duration-300">
+      {error && <ErrorState message={error} onRetry={reload} />}
       <div className="w-full max-w-4xl flex justify-between items-end mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">
@@ -92,7 +106,7 @@ const Pets = () => {
         {pets.length === 0 ? (
           <div className="col-span-full bg-white border border-slate-200 border-dashed py-16 flex flex-col items-center justify-center rounded-2xl text-slate-500">
             <div className="bg-slate-50 p-4 rounded-full mb-4">
-              <PawPrint size={32} className="text-slate-400" />
+              <PawPrint size={32} className="text-slate-600" />
             </div>
             <p className="font-medium">
               Você ainda não possui pets cadastrados.
@@ -126,13 +140,13 @@ const Pets = () => {
               <div className="flex gap-1">
                 <button
                   onClick={() => handleOpenModal("edit", pet)}
-                  className="text-slate-400 hover:text-brand-600 p-2 transition-colors"
+                  className="text-slate-600 hover:text-brand-600 p-2 transition-colors"
                 >
                   <Edit2 size={18} />
                 </button>
                 <button
                   onClick={() => confirmDelete(pet.id)}
-                  className="text-slate-300 hover:text-red-500 p-2 transition-colors"
+                  className="text-slate-600 hover:text-red-700 p-2 transition-colors"
                 >
                   <Trash2 size={18} />
                 </button>
@@ -145,13 +159,21 @@ const Pets = () => {
       <Modal
         isOpen={modalPet.open}
         onClose={() => setModalPet({ ...modalPet, open: false })}
+        busy={saving}
         title={modalPet.mode === "create" ? "Novo Pet" : "Editar Pet"}
       >
+        {mutationError && <ErrorState message={mutationError} />}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-bold text-slate-700">Nome*</label>
+              <label
+                htmlFor="pets-1"
+                className="text-sm font-bold text-slate-700"
+              >
+                Nome*
+              </label>
               <input
+                id="pets-1"
                 type="text"
                 value={formData.nome}
                 onChange={(e) =>
@@ -162,10 +184,14 @@ const Pets = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-bold text-slate-700">
+              <label
+                htmlFor="pets-2"
+                className="text-sm font-bold text-slate-700"
+              >
                 Espécie*
               </label>
               <input
+                id="pets-2"
                 type="text"
                 placeholder="Cão, Gato..."
                 value={formData.especie}
@@ -177,8 +203,14 @@ const Pets = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-bold text-slate-700">Raça</label>
+              <label
+                htmlFor="pets-3"
+                className="text-sm font-bold text-slate-700"
+              >
+                Raça
+              </label>
               <input
+                id="pets-3"
                 type="text"
                 value={formData.raca}
                 onChange={(e) =>
@@ -188,10 +220,14 @@ const Pets = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-bold text-slate-700">
+              <label
+                htmlFor="pets-4"
+                className="text-sm font-bold text-slate-700"
+              >
                 Data de Nascimento
               </label>
               <input
+                id="pets-4"
                 type="date"
                 value={formData.data_nasc}
                 onChange={(e) =>
@@ -202,8 +238,14 @@ const Pets = () => {
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-slate-700">Sexo</label>
+            <label
+              htmlFor="pets-5"
+              className="text-sm font-bold text-slate-700"
+            >
+              Sexo
+            </label>
             <select
+              id="pets-5"
               value={formData.sexo}
               onChange={(e) =>
                 setFormData({ ...formData, sexo: e.target.value })
@@ -218,6 +260,7 @@ const Pets = () => {
           <div className="flex justify-end gap-3 mt-4">
             <button
               type="button"
+              disabled={saving}
               onClick={() => setModalPet({ ...modalPet, open: false })}
               className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
             >
@@ -225,6 +268,7 @@ const Pets = () => {
             </button>
             <button
               type="submit"
+              disabled={saving}
               className="bg-brand-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-sm hover:bg-brand-700 transition-all"
             >
               {modalPet.mode === "create"

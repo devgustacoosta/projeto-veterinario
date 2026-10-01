@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./layouts/MainLayout";
 
 import Pets from "./pages/tutor/Pets";
+import Financas from "./pages/vet/Financas";
 import Agendamentos from "./pages/tutor/Agendamentos";
 
 import Agenda from "./pages/vet/Agenda";
@@ -36,6 +37,7 @@ function App() {
               element={<ProtectedRoute perfisPermitidos={["veterinario"]} />}
             >
               <Route element={<MainLayout />}>
+                <Route path="/vet/financas" element={<Financas />} />
                 <Route path="/vet/agenda" element={<Agenda />} />
                 <Route path="/vet/pacientes" element={<Pacientes />} />
                 <Route path="/vet/configuracoes" element={<Configuracoes />} />

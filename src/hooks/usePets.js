@@ -1,83 +1,48 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-
-export const usePets = () => {
-  const { token } = useAuth();
+import { useState } from "react";
+import { useCollection } from "./useCollection";
+import { useToast } from "../context/toast";
+export function usePets() {
+  const {
+    items: pets,
+    setItems,
+    loading,
+    error,
+    reload,
+    request,
+  } = useCollection("/tutor/pets");
   const { addToast } = useToast();
-  const [pets, setPets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const apiUrl = import.meta.env.VITE_API_URL;
-
-  const fetchPets = useCallback(async () => {
-    setLoading(true);
+  const [saving, setSaving] = useState(false);
+  const [mutationError, setMutationError] = useState("");
+  const mutate = async (path, method, body, message, id) => {
+    setSaving(true);
+    setMutationError("");
     try {
-      const response = await fetch(`${apiUrl}/tutor/pets`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error("Falha ao buscar pets");
-      setPets(await response.json());
+      await request(path, { method, body });
+      if (method === "DELETE")
+        setItems((prev) => prev.filter((pet) => pet.id !== id));
+      else await reload();
+      addToast(message, "success");
+      return true;
+    } catch (err) {
+      setMutationError(err.message);
+      addToast(err.message, "error");
+      return false;
     } finally {
-      setLoading(false);
-    }
-  }, [token, apiUrl]);
-
-  useEffect(() => {
-    fetchPets();
-  }, [fetchPets]);
-
-  const addPet = async (petData) => {
-    try {
-      const response = await fetch(`${apiUrl}/tutor/pets`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(petData),
-      });
-      if (!response.ok) throw new Error("Erro");
-      await fetchPets();
-      addToast("Pet cadastrado!", "success");
-      return true;
-    } catch {
-      addToast("Erro ao cadastrar pet", "error");
-      return true;
+      setSaving(false);
     }
   };
-
-  const updatePet = async (id, petData) => {
-    try {
-      const response = await fetch(`${apiUrl}/tutor/pets/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(petData),
-      });
-      if (!response.ok) throw new Error("Erro");
-      await fetchPets();
-      addToast("Dados do pet atualizados!", "success");
-      return true;
-    } catch {
-      addToast("Erro ao atualizar dados do pet", "error");
-      return true;
-    }
+  return {
+    pets,
+    loading,
+    error,
+    saving,
+    mutationError,
+    clearMutationError: () => setMutationError(""),
+    reload,
+    addPet: (data) => mutate("/tutor/pets", "POST", data, "Pet cadastrado!"),
+    updatePet: (id, data) =>
+      mutate(`/tutor/pets/${id}`, "PUT", data, "Dados do pet atualizados!"),
+    deletePet: (id) =>
+      mutate(`/tutor/pets/${id}`, "DELETE", undefined, "Pet removido!", id),
   };
-
-  const deletePet = async (id) => {
-    try {
-      await fetch(`${apiUrl}/tutor/pets/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPets((p) => p.filter((pet) => pet.id !== id));
-      addToast("Pet removido!", "success");
-    } catch {
-      addToast("Erro ao remover pet", "Error");
-    }
-  };
-
-  return { pets, loading, addPet, updatePet, deletePet };
-};
+}
