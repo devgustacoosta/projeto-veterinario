@@ -1,80 +1,50 @@
-# Projeto Veterinário (Frontend)
+# Projeto veterinário — PI II
 
-Este é o frontend do sistema de gerenciamento para clínicas veterinárias. A aplicação oferece painéis distintos para tutores de pets e médicos veterinários, facilitando o agendamento de consultas e o acompanhamento do histórico médico.
+Frontend React 19, Vite e Tailwind para tutores e veterinários. Mantém agenda, pets, pacientes e configurações do PI I e adiciona procedimentos e valores por atendimento, resumo financeiro por dia/mês/ano e consulta de valores pelo tutor.
 
-## 🌐 Acesso Online
+## Executar
 
-O projeto está disponível em ambiente de produção e pode ser acessado através do link:
-[https://projeto-veterinario-kappa.vercel.app](https://projeto-veterinario-kappa.vercel.app)
-
-## 🚀 Tecnologias Utilizadas
-
-- **React 19**
-- **Vite**
-- **Tailwind CSS 4**
-- **React Router DOM**
-- **Lucide React** (Ícones)
-- **Context API** (Gerenciamento de estado global para Autenticação e Notificações)
-
-## 🌟 Funcionalidades
-
-### Área do Tutor
-
-- **Meus Pets:** Cadastro, edição e remoção dos perfis dos pets.
-- **Agendamentos:** Marcação de novas consultas, visualização do histórico, cancelamento e remarcação de horários.
-
-### Painel do Veterinário
-
-- **Agenda:** Controle de horários e registro de atendimentos (diagnóstico, prescrição, observações e peso).
-- **Pacientes:** Visualização de todos os pacientes e acesso ao histórico clínico detalhado.
-- **Configurações:** Definição de horários de atendimento padrão e bloqueio de agendas (férias, imprevistos, etc.).
-
-## 📋 Pré-requisitos
-
-Antes de iniciar, certifique-se de ter instalado em sua máquina:
-
-- [Node.js](https://nodejs.org/en/) (versão 22.12 ou superior)
-- npm, yarn ou pnpm
-
-## 🔧 Como executar o projeto localmente
-
-Siga os passos abaixo para baixar e rodar a aplicação na sua máquina:
-
-1. **Clone o repositório:** `git clone <url-do-repositorio>`
-2. **Acesse a pasta do projeto:** `cd projeto-veterinario`
-3. **Instale as dependências:** `npm install`
-4. **Configure a API:** copie `.env.example` para `.env.local` e ajuste `VITE_API_URL`.
-5. **Inicie o servidor de desenvolvimento:** `npm run dev`
-6. **Acesse no navegador:** A aplicação estará rodando no endereço `http://localhost:5173`.
-
-## Configuração da API
-
-Copie `.env.example` para `.env.local` e ajuste `VITE_API_URL` para o backend. Reinicie o Vite após alterar a configuração. Para produção, configure essa variável durante o build. A aplicação exige contas reais cadastradas no backend.
-
-O painel financeiro e os valores de procedimentos dependem dos endpoints financeiros e de histórico disponibilizados pelo backend.
-
-## Qualidade e testes
-
-O comando `npm run quality:check` executa formatação, ESLint, testes com cobertura e build. O Vitest bloqueia a execução quando qualquer métrica de cobertura fica abaixo de 100%. `console.log`, `console.error` e demais chamadas de console também são erros de lint.
-
-Para habilitar os hooks do Git neste clone, execute uma vez:
+Node.js 22 e npm. O backend Flask/MySQL é um projeto separado e **não está incluído neste repositório**.
 
 ```bash
-git config core.hooksPath .githooks
+npm ci
+cp .env.example .env
+npm run dev
 ```
 
-Depois disso, `git commit` e `git push` executam a validação automaticamente e são interrompidos ao primeiro erro ou quando a cobertura fica abaixo de 100%. O Git não oferece hooks para comandos somente de consulta, como `git status` ou `git diff`.
+Configure `VITE_API_URL` com a URL base da API, sem barra final. Login, cadastro e persistência exigem servidor disponível. Não existe login fictício nem fallback de produção para dados simulados. Variáveis `VITE_*` ficam públicas no bundle: nunca coloque senhas ou chaves privadas nelas.
+
+## Finanças
+
+- Veterinário cadastra, altera e inativa procedimentos; define preço de referência e custo de materiais.
+- No registro clínico, seleciona procedimentos, quantidades e preços praticados.
+- Consulta valores por intervalo e agrupamento diário, mensal ou anual.
+- Tutor consulta apenas os valores de seus atendimentos concluídos.
+
+O frontend envia valores decimais com duas casas. O servidor deve calcular totais, controlar autorização e manter cópias históricas dos preços. Resumo de serviços não é lucro nem confirmação de pagamento. Os novos endpoints estão especificados em [docs/API_FINANCEIRA.md](docs/API_FINANCEIRA.md); implementar e validar no Flask antes de considerar o módulo integrado.
+
+## Qualidade
 
 ```bash
-npm run lint
-npm run format:check
-npm test
+npm run quality:check
 npm run test:coverage
 npx playwright install --with-deps chromium
 npm run test:e2e
-npm run build
 ```
 
-Os testes de navegador iniciam seu próprio Vite na porta 4173 e verificam as telas públicas, a proteção de rotas e a acessibilidade sem simular autenticação. Os testes unitários controlam respostas HTTP para verificar comportamentos do frontend; não comprovam a integração com o backend. A instalação inicial do Chromium pode exigir permissões administrativas para suas bibliotecas de sistema.
+Vitest verifica HTTP, valores monetários, CRUD e confirmações assíncronas. Playwright verifica fluxos financeiros, falhas, foco, teclado, navegação móvel e acessibilidade com axe. A API é interceptada **somente nos testes**. Esses testes não demonstram persistência, segurança ou compatibilidade do backend real. Não há requisito de cobertura de 100%. CI executa lint, testes, build e navegador em pushes e pull requests.
 
-A cobertura é gerada em `coverage/lcov.info`. A integração com SonarQube depende da configuração do servidor e das credenciais do ambiente.
+Antes de entregar o PI, validar com servidor real: autorização entre tutores/veterinários, preços históricos, totais em Decimal, conflitos simultâneos, persistência após atualizar página e desempenho. Registrar consentimentos, feedback do parceiro, resultados e demonstração nas entregas acadêmicas; o código não substitui essas evidências.
+
+## Publicação e nuvem
+
+Frontend pode ser publicado na Vercel com build `npm run build`, saída `dist` e variável `VITE_API_URL` apontando para API HTTPS. `vercel.json` permite acesso direto às rotas React. Backend deve permitir CORS somente das origens necessárias e validar JWT em cada endpoint. Nuvem usada pelo frontend não hospeda automaticamente Flask nem MySQL.
+
+```mermaid
+flowchart TD
+  U["Tutor / veterinário"] --> F["Frontend React — Vercel"]
+  F -->|"HTTPS + JWT"| A["API Flask — servidor separado"]
+  A --> D["MySQL — rede privada"]
+```
+
+Não efetue deploy com endpoint local. Documente URL, provedor, configuração, diagrama e evidências do serviço em nuvem no relatório do PI. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) contém sequência, diário e pendências.
