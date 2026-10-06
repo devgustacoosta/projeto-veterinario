@@ -5,8 +5,8 @@
   --color-brand-100: #ccfbf1;
   --color-brand-200: #99f6e4;
   --color-brand-500: #14b8a6;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
+  --color-brand-600: #0f766e;
+  --color-brand-700: #115e59;
   --color-brand-900: #134e4a;
 
   --color-background: #f8fafc;
@@ -24,4 +24,42 @@ input,
 select,
 textarea {
   transition: all 0.2s ease-in-out;
+}
+
+:focus-visible {
+  outline: 3px solid #0f766e !important;
+  outline-offset: 3px;
+}
+button,
+a,
+input,
+select,
+textarea {
+  scroll-margin: 1rem;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 1rem;
+  z-index: 200;
+  padding: 0.75rem 1rem;
+  background: white;
+  color: #134e4a;
+  border: 2px solid #0f766e;
+  border-radius: 0.5rem;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

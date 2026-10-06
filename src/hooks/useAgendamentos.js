@@ -1,138 +1,57 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-
-const sanitizePayloadDate = (data) => {
-  if (!data) return data;
-  const payload = { ...data };
-
-  if (payload.data_hora) {
-    payload.data_hora = payload.data_hora.replace("T", " ");
-    if (payload.data_hora.length === 16) {
-      payload.data_hora += ":00";
-    }
-  }
-
-  if (payload.nova_data_hora) {
-    payload.nova_data_hora = payload.nova_data_hora.replace("T", " ");
-    if (payload.nova_data_hora.length === 16) {
-      payload.nova_data_hora += ":00";
-    }
-  }
-
-  return payload;
-};
-
-export const useAgendamentos = (filtro = "todos") => {
-  const { token } = useAuth();
-  const { addToast } = useToast();
-  const [agendamentos, setAgendamentos] = useState([]);
-  const [pets, setPets] = useState([]);
-  const [veterinarios, setVeterinarios] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const apiUrl = import.meta.env.VITE_API_URL;
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [agRes, petsRes, vetRes] = await Promise.all([
-        fetch(`${apiUrl}/tutor/agendamentos?filtro=${filtro}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiUrl}/tutor/pets`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiUrl}/veterinarios`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
-
-      if (!agRes.ok || !petsRes.ok || !vetRes.ok) {
-        throw new Error("Erro ao buscar os dados da API");
-      }
-
-      setAgendamentos(await agRes.json());
-      setPets(await petsRes.json());
-      setVeterinarios(await vetRes.json());
-    } catch {
-      addToast("Erro ao carregar dados", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [token, apiUrl, filtro, addToast]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const fetchHorariosDisponiveis = useCallback(
-    async (vetId, data) => {
-      try {
-        const response = await fetch(
-          `${apiUrl}/veterinarios/${vetId}/disponibilidade?data=${data}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!response.ok) return [];
-        return await response.json();
-      } catch {
-        return [];
-      }
-    },
-    [apiUrl, token]
+import { useCallback } from "react";
+import { useCollection } from "./useCollection";
+import { useToast } from "../context/toast";
+import { normalizeDates, requireArray } from "../lib/api";
+export function useAgendamentos(filtro = "todos") {
+  const appointments = useCollection(
+    `/tutor/agendamentos?filtro=${encodeURIComponent(filtro)}`,
   );
-
-  const addAgendamento = async (data) => {
-    const payload = sanitizePayloadDate(data);
-
-    const response = await fetch(`${apiUrl}/tutor/agendamentos`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
+  const pets = useCollection("/tutor/pets");
+  const vets = useCollection("/veterinarios");
+  const { request, reload } = appointments;
+  const { addToast } = useToast();
+  const fetchHorariosDisponiveis = useCallback(
+    async (id, data, signal) =>
+      requireArray(
+        await request(
+          `/veterinarios/${id}/disponibilidade?data=${encodeURIComponent(data)}`,
+          { signal },
+        ),
+      ),
+    [request],
+  );
+  const mutate = async (path, method, body, message) => {
+    await request(path, {
+      method,
+      body: body ? normalizeDates(body) : undefined,
     });
-
-    if (response.status === 409) throw new Error("Horário já ocupado");
-    if (!response.ok) throw new Error("Erro ao agendar");
-
-    await fetchData();
-    addToast("Consulta agendada!", "success");
+    await reload();
+    addToast(message, "success");
     return true;
   };
-
-  const cancelAgendamento = async (id) => {
-    try {
-      const response = await fetch(
-        `${apiUrl}/tutor/agendamentos/${id}/cancelar`,
-        {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Erro de resposta da API");
-      }
-
-      setAgendamentos((prev) =>
-        prev.map((ag) => (ag.id === id ? { ...ag, status: "cancelado" } : ag))
-      );
-      addToast("Agendamento cancelado!", "success");
-    } catch {
-      addToast("Erro ao cancelar o agendamento!", "error");
-    }
-  };
-
   return {
-    agendamentos,
-    pets,
-    veterinarios,
-    loading,
-    addAgendamento,
-    cancelAgendamento,
+    agendamentos: appointments.items,
+    pets: pets.items,
+    veterinarios: vets.items,
+    loading: appointments.loading || pets.loading || vets.loading,
+    error: appointments.error || pets.error || vets.error,
+    reload: () => Promise.all([reload(), pets.reload(), vets.reload()]),
     fetchHorariosDisponiveis,
+    addAgendamento: (data) =>
+      mutate("/tutor/agendamentos", "POST", data, "Consulta agendada!"),
+    cancelAgendamento: (id) =>
+      mutate(
+        `/tutor/agendamentos/${id}/cancelar`,
+        "PUT",
+        undefined,
+        "Consulta cancelada!",
+      ),
+    remarcarAgendamento: (id, data) =>
+      mutate(
+        `/tutor/agendamentos/${id}/remarcar`,
+        "PUT",
+        { nova_data_hora: data },
+        "Consulta remarcada!",
+      ),
   };
-};
+}

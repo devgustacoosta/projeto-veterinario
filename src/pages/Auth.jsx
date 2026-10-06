@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/auth";
+import { useToast } from "../context/toast";
+import { apiRequest } from "../lib/api";
 import Loading from "../components/Loading";
 import { PawPrint } from "lucide-react";
 
@@ -43,34 +44,29 @@ const Auth = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const apiUrl = import.meta.env.VITE_API_URL;
     const endpoint = isLogin ? "/auth/login" : "/auth/cadastro";
     const payload = isLogin
       ? { email: formData.email, senha: formData.senha }
       : formData;
 
     try {
-      const response = await fetch(`${apiUrl}${endpoint}`, {
+      const data = await apiRequest(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: payload,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.erro || "Ocorreu um erro na requisição.");
-      }
-
       if (isLogin) {
+        if (
+          !data?.access_token ||
+          !["tutor", "veterinario"].includes(data.perfil)
+        )
+          throw new Error("Resposta de autenticação inválida.");
         addToast("Login realizado com sucesso!", "success");
         login(data.access_token, data.perfil);
       } else {
         addToast(
           "Conta criada com sucesso! Faça login para continuar.",
-          "success"
+          "success",
         );
         setIsLogin(true);
       }
@@ -79,14 +75,6 @@ const Auth = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleMockLogin = (perfilMock) => {
-    addToast(
-      `Login simulado como ${perfilMock === "tutor" ? "Tutor" : "Veterinário"}`,
-      "success"
-    );
-    login("token-simulado-desenvolvimento", perfilMock);
   };
 
   return (
@@ -108,6 +96,7 @@ const Auth = () => {
             {isLogin ? "Não tem uma conta?" : "Já possui cadastro?"}
             <button
               type="button"
+              disabled={isLoading}
               onClick={toggleMode}
               className="ml-1.5 text-brand-600 hover:text-brand-700 font-semibold transition-colors"
             >
@@ -148,6 +137,7 @@ const Auth = () => {
               type="email"
               id="email"
               name="email"
+              autoComplete="username"
               value={formData.email}
               onChange={handleChange}
               className="border border-slate-300 rounded-lg py-2.5 px-4 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-all bg-white text-slate-900 w-full"
@@ -166,6 +156,7 @@ const Auth = () => {
               type="password"
               id="senha"
               name="senha"
+              autoComplete={isLogin ? "current-password" : "new-password"}
               value={formData.senha}
               onChange={handleChange}
               className="border border-slate-300 rounded-lg py-2.5 px-4 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-all bg-white text-slate-900 w-full"
@@ -222,28 +213,6 @@ const Auth = () => {
             {isLogin ? "Entrar" : "Finalizar cadastro"}
           </button>
         </form>
-
-        <div className="mt-8 pt-6 border-t border-slate-100 hidden">
-          <p className="text-xs text-slate-400 font-semibold text-center uppercase tracking-wider mb-4">
-            Acesso Rápido para Testes
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={() => handleMockLogin("tutor")}
-              className="flex-1 bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-            >
-              Entrar como Tutor
-            </button>
-            <button
-              type="button"
-              onClick={() => handleMockLogin("veterinario")}
-              className="flex-1 bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-            >
-              Entrar como Vet
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

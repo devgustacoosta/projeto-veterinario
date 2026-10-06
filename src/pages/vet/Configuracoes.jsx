@@ -1,3 +1,4 @@
+import ErrorState from "../../components/ErrorState";
 import React, { useState } from "react";
 import { useConfiguracoes } from "../../hooks/useConfiguracoes";
 import { Clock, CalendarOff, Plus, Trash2, AlertCircle } from "lucide-react";
@@ -8,12 +9,16 @@ const Configuracoes = () => {
     horarios,
     bloqueios,
     loading,
+    error,
+    reload,
+    saving,
     addHorario,
     removeHorario,
     addBloqueio,
     removeBloqueio,
   } = useConfiguracoes();
 
+  const [formError, setFormError] = useState("");
   const [formH, setFormH] = useState({
     dia_semana: "1",
     hora_inicio: "08:00",
@@ -38,9 +43,14 @@ const Configuracoes = () => {
 
   if (loading) return <Loading text="Carregando configurações..." />;
 
-  const handleSubmitHorario = (e) => {
+  const handleSubmitHorario = async (e) => {
     e.preventDefault();
-    addHorario({
+    setFormError("");
+    if (formH.hora_inicio >= formH.hora_fim) {
+      setFormError("O fim deve ser posterior ao início.");
+      return;
+    }
+    await addHorario({
       ...formH,
       dia_semana: parseInt(formH.dia_semana, 10),
       hora_inicio: formH.hora_inicio + ":00",
@@ -64,6 +74,8 @@ const Configuracoes = () => {
 
   return (
     <div className="w-full flex flex-col items-start pb-12 animate-in fade-in duration-300">
+      {formError && <ErrorState message={formError} />}
+      {error && <ErrorState message={error} onRetry={reload} />}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-2">
           Configurações da Agenda
@@ -95,10 +107,14 @@ const Configuracoes = () => {
           >
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex flex-col gap-1.5 flex-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <label
+                  htmlFor="configuracoes-1"
+                  className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                >
                   Dia da Semana
                 </label>
                 <select
+                  id="configuracoes-1"
                   value={formH.dia_semana}
                   onChange={(e) =>
                     setFormH({ ...formH, dia_semana: e.target.value })
@@ -114,10 +130,14 @@ const Configuracoes = () => {
               </div>
 
               <div className="flex flex-col gap-1.5 w-full md:w-32">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <label
+                  htmlFor="configuracoes-2"
+                  className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                >
                   Dur. (min)
                 </label>
                 <input
+                  id="configuracoes-2"
                   type="number"
                   min="5"
                   step="5"
@@ -133,10 +153,14 @@ const Configuracoes = () => {
 
             <div className="flex flex-col md:flex-row gap-4 items-end">
               <div className="flex flex-col gap-1.5 flex-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <label
+                  htmlFor="configuracoes-3"
+                  className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                >
                   Início
                 </label>
                 <input
+                  id="configuracoes-3"
                   type="time"
                   value={formH.hora_inicio}
                   onChange={(e) =>
@@ -148,10 +172,14 @@ const Configuracoes = () => {
               </div>
 
               <div className="flex flex-col gap-1.5 flex-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <label
+                  htmlFor="configuracoes-4"
+                  className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                >
                   Fim
                 </label>
                 <input
+                  id="configuracoes-4"
                   type="time"
                   value={formH.hora_fim}
                   onChange={(e) =>
@@ -163,7 +191,9 @@ const Configuracoes = () => {
               </div>
 
               <button
+                aria-label="Adicionar horário"
                 type="submit"
+                disabled={saving}
                 className="bg-brand-600 text-white p-3 rounded-lg hover:bg-brand-700 shadow-sm transition-all flex items-center justify-center min-w-[46px] h-[46px] w-full md:w-auto"
               >
                 <Plus size={20} />
@@ -192,12 +222,13 @@ const Configuracoes = () => {
                           {h.hora_inicio.substring(0, 5)} -{" "}
                           {h.hora_fim.substring(0, 5)}
                         </span>
-                        <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded font-bold">
+                        <span className="text-[10px] text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded font-bold">
                           {h.duracao_consulta_min}m
                         </span>
                         <button
+                          disabled={saving}
                           onClick={() => removeHorario(h.id)}
-                          className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                          className="text-slate-600 hover:text-red-700 transition-colors p-1"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -226,23 +257,33 @@ const Configuracoes = () => {
           </div>
 
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              addBloqueio({
+              setFormError("");
+              if (formB.data_inicio >= formB.data_fim) {
+                setFormError("O fim deve ser posterior ao início.");
+                return;
+              }
+              const success = await addBloqueio({
                 ...formB,
                 data_inicio: formB.data_inicio.replace("T", " ") + ":00",
                 data_fim: formB.data_fim.replace("T", " ") + ":00",
               });
-              setFormB({ data_inicio: "", data_fim: "", motivo: "" });
+              if (success)
+                setFormB({ data_inicio: "", data_fim: "", motivo: "" });
             }}
             className="flex flex-col gap-4 mb-8"
           >
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <label
+                  htmlFor="configuracoes-5"
+                  className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                >
                   Início*
                 </label>
                 <input
+                  id="configuracoes-5"
                   type="datetime-local"
                   value={formB.data_inicio}
                   onChange={(e) =>
@@ -253,10 +294,14 @@ const Configuracoes = () => {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <label
+                  htmlFor="configuracoes-6"
+                  className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+                >
                   Fim*
                 </label>
                 <input
+                  id="configuracoes-6"
                   type="datetime-local"
                   value={formB.data_fim}
                   onChange={(e) =>
@@ -268,10 +313,14 @@ const Configuracoes = () => {
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <label
+                htmlFor="configuracoes-7"
+                className="text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+              >
                 Motivo
               </label>
               <input
+                id="configuracoes-7"
                 type="text"
                 placeholder="Ex: Férias..."
                 value={formB.motivo}
@@ -281,6 +330,7 @@ const Configuracoes = () => {
             </div>
             <button
               type="submit"
+              disabled={saving}
               className="bg-slate-900 text-white py-3 rounded-xl font-bold shadow-sm hover:bg-slate-800 transition-all mt-2"
             >
               Criar Bloqueio
@@ -298,7 +348,7 @@ const Configuracoes = () => {
                   className="bg-red-50/50 border border-red-100 p-4 rounded-xl flex justify-between items-start transition-all"
                 >
                   <div className="flex gap-3">
-                    <AlertCircle size={18} className="text-red-500 mt-0.5" />
+                    <AlertCircle size={18} className="text-red-700 mt-0.5" />
                     <div className="flex flex-col">
                       <p className="font-bold text-slate-900 text-sm mb-1">
                         {b.motivo || "Período Bloqueado"}
@@ -312,8 +362,9 @@ const Configuracoes = () => {
                     </div>
                   </div>
                   <button
+                    disabled={saving}
                     onClick={() => removeBloqueio(b.id)}
-                    className="text-slate-300 hover:text-red-600 transition-colors p-1"
+                    className="text-slate-600 hover:text-red-600 transition-colors p-1"
                   >
                     <Trash2 size={16} />
                   </button>

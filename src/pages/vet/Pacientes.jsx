@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import ErrorState from "../../components/ErrorState";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { usePacientes } from "../../hooks/usePacientes";
 import {
@@ -16,21 +17,33 @@ import Loading from "../../components/Loading";
 
 const Pacientes = () => {
   const location = useLocation();
-  const { pacientes, loading, carregarHistorico } = usePacientes();
+  const { pacientes, loading, error, reload, carregarHistorico } =
+    usePacientes();
   const [pacienteSelecionado, setPacienteSelecionado] = useState(null);
   const [historico, setHistorico] = useState([]);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
+  const [historicoError, setHistoricoError] = useState("");
+  const historyRequest = useRef(0);
   const [busca, setBusca] = useState(location.state?.petNome || "");
 
   const handleSelect = useCallback(
     async (pet) => {
+      const requestId = ++historyRequest.current;
       setPacienteSelecionado(pet);
       setLoadingHistorico(true);
-      const data = await carregarHistorico(pet.id);
-      setHistorico(data);
-      setLoadingHistorico(false);
+      setHistorico([]);
+      setHistoricoError("");
+      try {
+        const result = await carregarHistorico(pet.id);
+        if (requestId === historyRequest.current) setHistorico(result);
+      } catch (err) {
+        if (requestId === historyRequest.current)
+          setHistoricoError(err.message);
+      } finally {
+        if (requestId === historyRequest.current) setLoadingHistorico(false);
+      }
     },
-    [carregarHistorico]
+    [carregarHistorico],
   );
 
   useEffect(() => {
@@ -40,7 +53,7 @@ const Pacientes = () => {
       !pacienteSelecionado
     ) {
       const petEncontrado = pacientes.find(
-        (p) => p.nome === location.state.petNome
+        (p) => p.nome === location.state.petNome,
       );
       if (petEncontrado) {
         setTimeout(() => {
@@ -52,8 +65,8 @@ const Pacientes = () => {
 
   const pacientesFiltrados = pacientes.filter(
     (p) =>
-      p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      p.tutor_nome.toLowerCase().includes(busca.toLowerCase())
+      (p.nome || "").toLowerCase().includes(busca.toLowerCase()) ||
+      (p.tutor_nome || "").toLowerCase().includes(busca.toLowerCase()),
   );
 
   const formatarDataRegistro = (dataString) => {
@@ -77,10 +90,11 @@ const Pacientes = () => {
         </div>
         <div className="relative mb-6">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-            <Search size={18} className="text-slate-400" />
+            <Search size={18} className="text-slate-600" />
           </div>
           <input
             type="text"
+            aria-label="Buscar paciente por pet ou tutor"
             placeholder="Buscar pet ou tutor..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
@@ -88,6 +102,7 @@ const Pacientes = () => {
           />
         </div>
 
+        {error && <ErrorState message={error} onRetry={reload} />}
         {loading ? (
           <Loading text="Buscando pacientes..." />
         ) : (
@@ -125,7 +140,7 @@ const Pacientes = () => {
                     className={
                       isActive
                         ? "text-brand-600"
-                        : "text-slate-300 group-hover:text-slate-500"
+                        : "text-slate-600 group-hover:text-slate-500"
                     }
                   />
                 </button>
@@ -139,12 +154,12 @@ const Pacientes = () => {
         {!pacienteSelecionado ? (
           <div className="h-full min-h-[400px] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center rounded-3xl bg-slate-50/50">
             <div className="bg-white p-5 rounded-full shadow-sm mb-4">
-              <FileText size={40} className="text-slate-300" />
+              <FileText size={40} className="text-slate-600" />
             </div>
             <p className="font-bold text-xl text-slate-500 mb-1">
               Nenhum paciente selecionado
             </p>
-            <p className="text-sm text-slate-400 font-medium">
+            <p className="text-sm text-slate-600 font-medium">
               Selecione na lista para ver o prontuário.
             </p>
           </div>
@@ -170,7 +185,7 @@ const Pacientes = () => {
                 </div>
               </div>
               <div className="text-left sm:text-right">
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mb-1">
+                <p className="text-[11px] text-slate-600 font-bold uppercase tracking-widest mb-1">
                   Responsável
                 </p>
                 <p className="font-bold text-slate-800 text-lg">
@@ -184,12 +199,18 @@ const Pacientes = () => {
               Histórico Médico
             </h3>
 
+            {historicoError && (
+              <ErrorState
+                message={historicoError}
+                onRetry={() => handleSelect(pacienteSelecionado)}
+              />
+            )}
             {loadingHistorico ? (
               <Loading text="Buscando histórico médico..." />
             ) : historico.length === 0 ? (
               <div className="bg-slate-50 border border-slate-200 border-dashed py-12 flex flex-col items-center justify-center rounded-2xl text-slate-500 mt-2">
                 <div className="bg-white p-3 rounded-full mb-3 shadow-sm">
-                  <FileText size={24} className="text-slate-400" />
+                  <FileText size={24} className="text-slate-600" />
                 </div>
                 <p className="font-medium text-sm">
                   Nenhum histórico médico encontrado para este pet.
@@ -214,13 +235,13 @@ const Pacientes = () => {
                             {formatarDataRegistro(registro.data_hora)}
                           </span>
                           <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                            <Stethoscope size={16} className="text-slate-400" />{" "}
+                            <Stethoscope size={16} className="text-slate-600" />{" "}
                             {registro.veterinario_nome || registro.veterinario}
                           </span>
                         </div>
                         <div className="p-6 flex flex-col gap-5">
                           {!hasDetalhes ? (
-                            <div className="flex items-center gap-2 text-sm font-medium text-slate-400">
+                            <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
                               <Info size={16} /> Atendimento registrado sem
                               anotações detalhadas.
                             </div>
@@ -228,7 +249,7 @@ const Pacientes = () => {
                             <>
                               {registro.diagnostico && (
                                 <div>
-                                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                  <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                     <Activity size={14} /> Diagnóstico
                                   </p>
                                   <p className="text-sm font-medium text-slate-800">
@@ -239,7 +260,7 @@ const Pacientes = () => {
 
                               {registro.observacoes && (
                                 <div>
-                                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                  <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                     <FileText size={14} /> Observações
                                   </p>
                                   <p className="text-sm font-medium text-slate-800">
@@ -250,7 +271,7 @@ const Pacientes = () => {
 
                               {registro.prescricao && (
                                 <div>
-                                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                  <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                     <Pill size={14} /> Prescrição
                                   </p>
                                   <p className="text-sm font-medium text-slate-800 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -262,7 +283,7 @@ const Pacientes = () => {
                               {registro.peso_kg && (
                                 <div className="flex gap-8 pt-4 border-t border-slate-100">
                                   <div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                    <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                       <Scale size={14} /> Peso
                                     </p>
                                     <p className="font-bold text-xl text-slate-900">

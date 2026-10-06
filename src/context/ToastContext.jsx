@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 
-const ToastContext = createContext();
+import { ToastContext } from "./toast";
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
@@ -19,7 +19,7 @@ export const ToastProvider = ({ children }) => {
         removeToast(id);
       }, 4000);
     },
-    [removeToast]
+    [removeToast],
   );
 
   return (
@@ -29,6 +29,7 @@ export const ToastProvider = ({ children }) => {
         {toasts.map((toast) => (
           <div
             key={toast.id}
+            role={toast.type === "error" ? "alert" : "status"}
             className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl shadow-lg border w-80 animate-in slide-in-from-right-8 fade-in duration-300
               ${
                 toast.type === "success"
@@ -52,7 +53,7 @@ export const ToastProvider = ({ children }) => {
                 <CheckCircle size={20} className="text-emerald-500" />
               )}
               {toast.type === "error" && (
-                <AlertCircle size={20} className="text-red-500" />
+                <AlertCircle size={20} className="text-red-700" />
               )}
               {toast.type === "info" && (
                 <Info size={20} className="text-blue-500" />
@@ -60,8 +61,9 @@ export const ToastProvider = ({ children }) => {
             </div>
             <p className="flex-1 text-sm font-medium">{toast.message}</p>
             <button
+              aria-label="Fechar notificação"
               onClick={() => removeToast(toast.id)}
-              className="shrink-0 text-slate-400 hover:text-slate-600 transition-colors"
+              className="shrink-0 text-slate-600 hover:text-slate-600 transition-colors"
             >
               <X size={18} />
             </button>
@@ -70,12 +72,4 @@ export const ToastProvider = ({ children }) => {
       </div>
     </ToastContext.Provider>
   );
-};
-
-export const useToast = () => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error("useToast deve ser usado dentro de um ToastProvider");
-  }
-  return context;
 };
