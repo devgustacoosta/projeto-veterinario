@@ -1,3 +1,4 @@
+import { dateTimeParts, formatTime } from "../../lib/dates";
 import ErrorState from "../../components/ErrorState";
 import React, { useState } from "react";
 import { useConfiguracoes } from "../../hooks/useConfiguracoes";
@@ -59,18 +60,6 @@ const Configuracoes = () => {
     });
   };
 
-  const formatDateTimeDisplay = (dataStr) => {
-    if (!dataStr) return { data: "", hora: "" };
-    const [d, t] = dataStr.split(/[T ]/);
-    const partes = d.split("-");
-    const dataFormatada =
-      partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : d;
-
-    return {
-      data: dataFormatada,
-      hora: t ? t.substring(0, 5) : "",
-    };
-  };
 
   return (
     <div className="w-full flex flex-col items-start pb-12 animate-in fade-in duration-300">
@@ -219,16 +208,17 @@ const Configuracoes = () => {
                         className="flex items-center gap-3 bg-white border border-slate-200 py-1.5 pl-3 pr-1.5 rounded-lg text-sm shadow-sm group hover:border-brand-200 transition-colors"
                       >
                         <span className="font-bold text-slate-700">
-                          {h.hora_inicio.substring(0, 5)} -{" "}
-                          {h.hora_fim.substring(0, 5)}
+                          {formatTime(h.hora_inicio)} -{" "}
+                          {formatTime(h.hora_fim)}
                         </span>
                         <span className="text-[10px] text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded font-bold">
                           {h.duracao_consulta_min}m
                         </span>
                         <button
                           disabled={saving}
+                          aria-label={`Remover horário de ${diasSemana[dia]}, das ${formatTime(h.hora_inicio)} às ${formatTime(h.hora_fim)}`}
                           onClick={() => removeHorario(h.id)}
-                          className="text-slate-600 hover:text-red-700 transition-colors p-1"
+                          className="text-slate-600 hover:text-red-700 transition-colors p-2 min-w-11 min-h-11 flex items-center justify-center"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -339,8 +329,8 @@ const Configuracoes = () => {
 
           <div className="flex flex-col gap-3">
             {bloqueios.map((b) => {
-              const inicio = formatDateTimeDisplay(b.data_inicio);
-              const fim = formatDateTimeDisplay(b.data_fim);
+              const inicio = dateTimeParts(b.data_inicio);
+              const fim = dateTimeParts(b.data_fim);
 
               return (
                 <div
@@ -353,18 +343,19 @@ const Configuracoes = () => {
                       <p className="font-bold text-slate-900 text-sm mb-1">
                         {b.motivo || "Período Bloqueado"}
                       </p>
-                      <p className="text-[11px] font-bold text-slate-500">
+                      <p className="text-[11px] font-bold text-slate-700">
                         De: {inicio.data} - {inicio.hora}
                       </p>
-                      <p className="text-[11px] font-bold text-slate-500">
+                      <p className="text-[11px] font-bold text-slate-700">
                         Até: {fim.data} - {fim.hora}
                       </p>
                     </div>
                   </div>
                   <button
                     disabled={saving}
+                    aria-label={`Remover bloqueio ${b.motivo || "Período Bloqueado"}, de ${inicio.data} às ${inicio.hora} até ${fim.data} às ${fim.hora}`}
                     onClick={() => removeBloqueio(b.id)}
-                    className="text-slate-600 hover:text-red-600 transition-colors p-1"
+                    className="text-slate-600 hover:text-red-600 transition-colors p-2 min-w-11 min-h-11 flex items-center justify-center"
                   >
                     <Trash2 size={16} />
                   </button>

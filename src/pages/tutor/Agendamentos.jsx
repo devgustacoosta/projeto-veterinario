@@ -1,3 +1,4 @@
+import { dateTimeParts } from "../../lib/dates";
 import ValoresAtendimento from "../../components/ValoresAtendimento";
 import { localDate } from "../../lib/api";
 import ErrorState from "../../components/ErrorState";
@@ -176,15 +177,6 @@ const Agendamentos = () => {
     });
   };
 
-  const formatDateTime = (dateString) => {
-    if (!dateString) return { data: "", hora: "" };
-    const [datePart, timePart] = dateString.split(/[T ]/);
-    const parts = datePart?.split("-") || [];
-    return {
-      data: parts.length === 3 ? `${parts[2]}/${parts[1]}` : datePart,
-      hora: timePart ? timePart.substring(0, 5) : "00:00",
-    };
-  };
 
   if (loading) return <Loading text="Carregando consultas..." />;
 
@@ -376,7 +368,9 @@ const Agendamentos = () => {
           </div>
         ) : (
           agendamentos.map((ag) => {
-            const { data, hora } = formatDateTime(ag.data_hora);
+            const parts = dateTimeParts(ag.data_hora);
+            const data = parts.data.slice(0, 5);
+            const hora = parts.hora;
             const isCancelado = ag.status === "cancelado";
             const isAgendado = ["pendente", "confirmado", "remarcado"].includes(
               ag.status,

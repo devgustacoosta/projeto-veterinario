@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../lib/dates";
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Wallet, Receipt } from "lucide-react";
 import { useCollection } from "../../hooks/useCollection";
@@ -214,7 +215,7 @@ export default function Financas() {
                           className="border-b border-slate-100"
                         >
                           <td className="p-3">
-                            {row.data_hora?.replace("T", " ").slice(0, 16)}
+                            {formatDateTime(row.data_hora)}
                           </td>
                           <td className="p-3">
                             {row.pet_nome}

@@ -1,3 +1,4 @@
+import { dateTimeParts } from "../../lib/dates";
 import ErrorState from "../../components/ErrorState";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
@@ -69,13 +70,6 @@ const Pacientes = () => {
       (p.tutor_nome || "").toLowerCase().includes(busca.toLowerCase()),
   );
 
-  const formatarDataRegistro = (dataString) => {
-    if (!dataString) return "";
-    const partes = dataString.split(/[T ]/)[0].split("-");
-    return partes.length === 3
-      ? `${partes[2]}/${partes[1]}/${partes[0]}`
-      : dataString.split(/[T ]/)[0];
-  };
 
   return (
     <div className="w-full h-full flex flex-col md:flex-row gap-8 items-start animate-in fade-in duration-300">
@@ -232,7 +226,7 @@ const Pacientes = () => {
                       <div className="bg-white border border-slate-100 shadow-sm rounded-2xl overflow-hidden">
                         <div className="bg-slate-50/80 border-b border-slate-100 px-6 py-4 flex justify-between items-center">
                           <span className="font-bold text-slate-900 text-sm">
-                            {formatarDataRegistro(registro.data_hora)}
+                            {dateTimeParts(registro.data_hora).data}
                           </span>
                           <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
                             <Stethoscope size={16} className="text-slate-600" />{" "}

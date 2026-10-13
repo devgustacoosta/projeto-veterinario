@@ -102,7 +102,7 @@ Os testes controlam as respostas da API para reproduzir os cenários. A validaç
 
 A interface utiliza rótulos de campos, foco visível, notificações semânticas, controle de foco nos diálogos e suporte à navegação por teclado. O menu móvel informa seu estado e a aplicação respeita a preferência por movimento reduzido.
 
-As verificações automatizadas abrangem os estados previstos nos testes. A avaliação completa também deve incluir leitores de tela, zoom, contraste e telas com dados preenchidos. Os botões de remoção dos horários cadastrados ainda precisam de rótulos acessíveis.
+As verificações automatizadas abrangem os estados previstos nos testes. A avaliação completa também deve incluir leitores de tela, zoom, contraste e telas com dados preenchidos. Os controles de remoção de horários e bloqueios têm nomes acessíveis que identificam o registro.
 
 ## Build e publicação
 

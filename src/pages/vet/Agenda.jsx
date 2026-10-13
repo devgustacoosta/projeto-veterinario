@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../lib/dates";
 import ProcedimentosAtendimento from "../../components/ProcedimentosAtendimento";
 import { validateItems } from "../../lib/money";
 import { localDate } from "../../lib/api";
@@ -91,18 +92,6 @@ const Agenda = () => {
     return () => controller.abort();
   }, [formNovo.data, fetchMinhaDisponibilidade]);
 
-  const formatarDataHora = (dataString) => {
-    if (!dataString) return "";
-    const partes = dataString.split(/[T ]/);
-    const dataPartes = partes[0].split("-");
-    const dataFormatada =
-      dataPartes.length === 3
-        ? `${dataPartes[2]}/${dataPartes[1]}/${dataPartes[0]}`
-        : partes[0];
-    const horaFormatada = partes[1] ? partes[1].substring(0, 5) : "00:00";
-
-    return `${dataFormatada} - ${horaFormatada}`;
-  };
 
   const abrirModal = (ag) => {
     setAgendamentoSelecionado(ag);
@@ -239,7 +228,7 @@ const Agenda = () => {
                         isConcluido ? "text-slate-600" : "text-slate-900"
                       }`}
                     >
-                      {formatarDataHora(ag.data_hora)}
+                      {formatDateTime(ag.data_hora)}
                     </span>
                     <div
                       className={`hidden md:block w-3.5 h-3.5 rounded-full border-2 bg-white ${
