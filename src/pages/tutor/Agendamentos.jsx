@@ -1,4 +1,4 @@
-import { dateTimeParts } from "../../lib/dates";
+import { dateTimeParts, formatTime, weekdayName } from "../../lib/dates";
 import ValoresAtendimento from "../../components/ValoresAtendimento";
 import { localDate } from "../../lib/api";
 import ErrorState from "../../components/ErrorState";
@@ -124,13 +124,13 @@ const Agendamentos = () => {
       message: `Deseja agendar a consulta para o dia ${formData.data
         .split("-")
         .reverse()
-        .join("/")} às ${formData.hora}?`,
+        .join("/")} às ${formatTime(formData.hora)}?`,
       isDestructive: false,
       action: async () => {
         const success = await addAgendamento({
           veterinario_id: parseInt(formData.veterinario_id, 10),
           pet_id: parseInt(formData.pet_id, 10),
-          data_hora: `${formData.data} ${formData.hora}`,
+          data_hora: `${formData.data} ${formatTime(formData.hora)}`,
           motivo_consulta: formData.motivo_consulta,
         });
 
@@ -168,10 +168,10 @@ const Agendamentos = () => {
       message: `Deseja remarcar a consulta para o dia ${rescheduleDate
         .split("-")
         .reverse()
-        .join("/")} às ${rescheduleTime}?`,
+        .join("/")} às ${formatTime(rescheduleTime)}?`,
       isDestructive: false,
       action: async () => {
-        await remarcarAgendamento(ag_id, `${rescheduleDate} ${rescheduleTime}`);
+        await remarcarAgendamento(ag_id, `${rescheduleDate} ${formatTime(rescheduleTime)}`);
         setRescheduleId(null);
       },
     });
@@ -272,6 +272,7 @@ const Agendamentos = () => {
               <input
                 id="agendamentos-3"
                 type="date"
+                  lang="pt-BR"
                 min={localDate()}
                 value={formData.data}
                 onChange={(e) =>
@@ -300,7 +301,7 @@ const Agendamentos = () => {
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {availableSlots.map((slot) => (
                     <button
-                      key={slot}
+                      key={formatTime(slot)}
                       aria-pressed={formData.hora === slot}
                       type="button"
                       onClick={() => setFormData({ ...formData, hora: slot })}
@@ -310,7 +311,7 @@ const Agendamentos = () => {
                           : "bg-white text-slate-700 border-slate-300 hover:border-brand-400"
                       }`}
                     >
-                      {slot}
+                      {formatTime(slot)}
                     </button>
                   ))}
                 </div>
@@ -369,7 +370,8 @@ const Agendamentos = () => {
         ) : (
           agendamentos.map((ag) => {
             const parts = dateTimeParts(ag.data_hora);
-            const data = parts.data.slice(0, 5);
+            const data = parts.data;
+            const diaSemana = weekdayName(ag.data_hora);
             const hora = parts.hora;
             const isCancelado = ag.status === "cancelado";
             const isAgendado = ["pendente", "confirmado", "remarcado"].includes(
@@ -396,7 +398,8 @@ const Agendamentos = () => {
                         isCancelado ? "text-slate-600" : "text-brand-600"
                       }`}
                     >
-                      {data}
+                      {diaSemana}
+                      <span className="block mt-1">{data}</span>
                     </span>
                     <span
                       className={`text-xl font-bold flex items-center gap-1.5 ${
@@ -479,6 +482,7 @@ const Agendamentos = () => {
                     <div className="flex flex-col sm:flex-row gap-3">
                       <input
                         type="date"
+                  lang="pt-BR"
                         min={localDate()}
                         aria-label="Nova data da consulta"
                         value={rescheduleDate}
@@ -509,8 +513,8 @@ const Agendamentos = () => {
                               : "Selecione a hora"}
                           </option>
                           {rescheduleSlots.map((slot) => (
-                            <option key={slot} value={slot}>
-                              {slot}
+                            <option key={formatTime(slot)} value={formatTime(slot)}>
+                              {formatTime(slot)}
                             </option>
                           ))}
                         </select>

@@ -1,4 +1,4 @@
-import { formatDateTime } from "../../lib/dates";
+import { formatDateTime, formatPeriod } from "../../lib/dates";
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Wallet, Receipt } from "lucide-react";
 import { useCollection } from "../../hooks/useCollection";
@@ -130,6 +130,7 @@ export default function Financas() {
             <input
               required
               type="date"
+                  lang="pt-BR"
               value={filters.inicio}
               onChange={(e) =>
                 setFilters({ ...filters, inicio: e.target.value })
@@ -142,6 +143,7 @@ export default function Financas() {
             <input
               required
               type="date"
+                  lang="pt-BR"
               min={filters.inicio}
               value={filters.fim}
               onChange={(e) => setFilters({ ...filters, fim: e.target.value })}
@@ -236,10 +238,10 @@ export default function Financas() {
                 <div className="mt-5 grid sm:grid-cols-3 gap-3">
                   {report.periodos.map((row) => (
                     <div
-                      key={row.periodo}
+                      key={formatPeriod(row.periodo)}
                       className="rounded-xl bg-slate-50 p-4"
                     >
-                      <p className="text-slate-600 text-sm">{row.periodo}</p>
+                      <p className="text-slate-600 text-sm">{formatPeriod(row.periodo)}</p>
                       <p className="font-bold mt-1">{currency(row.total)}</p>
                     </div>
                   ))}

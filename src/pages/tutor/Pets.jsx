@@ -229,6 +229,7 @@ const Pets = () => {
               <input
                 id="pets-4"
                 type="date"
+                  lang="pt-BR"
                 value={formData.data_nasc}
                 onChange={(e) =>
                   setFormData({ ...formData, data_nasc: e.target.value })

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-test.use({ timezoneId: "America/Sao_Paulo" });
+test.use({ timezoneId: "America/Sao_Paulo", locale: "en-US" });
 
 test("horários e bloqueios preenchidos têm nomes acessíveis e remoção por teclado", async ({ page }) => {
   let horarios = [{ id: 11, dia_semana: 1, hora_inicio: "8:00:00", hora_fim: "12:00:00", duracao_consulta_min: 30 }];
@@ -48,5 +48,40 @@ test("datas HTTP na agenda do veterinário exibem dia e horário completos", asy
   });
   await page.route("**/api/**", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify(new URL(route.request().url()).pathname.endsWith("/agenda") ? [{ id: 7, pet_nome: "Nina", tutor_nome: "Mariana", data_hora: "Tue, 13 Oct 2026 08:30:00 GMT", status: "confirmado" }] : []) }));
   await page.goto("/vet/agenda");
-  await expect(page.getByText("13/10/2026 - 08:30", { exact: true })).toBeVisible();
+  await expect(page.getByText("terça-feira · 13/10/2026 - 08:30", { exact: true })).toBeVisible();
+});
+
+
+test("agenda do tutor traduz datas HTTP mesmo com navegador em inglês", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "test-only-token");
+    localStorage.setItem("user_perfil", "tutor");
+  });
+  await page.route("**/api/**", route => route.fulfill({ contentType: "application/json", body: JSON.stringify(new URL(route.request().url()).pathname.endsWith("/agendamentos") ? [{ id: 7, pet_nome: "Nina", veterinario_nome: "Pedro", data_hora: "Wed, 06 Oct 2021 08:00:00 GMT", status: "confirmado" }] : []) }));
+  await page.goto("/tutor/agendamentos");
+  await expect(page.getByText("quarta-feira", { exact: false })).toBeVisible();
+  await expect(page.getByText("06/10/2021", { exact: true })).toBeVisible();
+  await expect(page.getByText("08:00", { exact: true })).toBeVisible();
+  await expect(page.getByText("Wed,", { exact: false })).toHaveCount(0);
+});
+
+test("resumo financeiro apresenta períodos por dia, mês e ano em pt-BR", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("access_token", "test-only-token");
+    localStorage.setItem("user_perfil", "veterinario");
+  });
+  await page.route("**/api/**", route => {
+    const url = new URL(route.request().url());
+    const group = url.searchParams.get("agrupamento");
+    const periodo = group === "mes" ? "2026-10" : group === "ano" ? "2026" : "2026-10-06";
+    return route.fulfill({ contentType: "application/json", body: JSON.stringify(url.pathname.endsWith("/financeiro") ? { total: "120.00", atendimentos: [], periodos: [{ periodo, total: "120.00" }] } : []) });
+  });
+  await page.goto("/vet/financas");
+  await expect(page.getByText("06/10/2026", { exact: true })).toBeVisible();
+  await page.getByLabel("Agrupar por").selectOption("mes");
+  await page.getByRole("button", { name: "Consultar", exact: true }).click();
+  await expect(page.getByText("outubro de 2026", { exact: true })).toBeVisible();
+  await page.getByLabel("Agrupar por").selectOption("ano");
+  await page.getByRole("button", { name: "Consultar", exact: true }).click();
+  await expect(page.getByText("2026", { exact: true })).toBeVisible();
 });

@@ -1,4 +1,4 @@
-import { formatDateTime } from "../../lib/dates";
+import { formatDateTime, formatTime, weekdayName } from "../../lib/dates";
 import ProcedimentosAtendimento from "../../components/ProcedimentosAtendimento";
 import { validateItems } from "../../lib/money";
 import { localDate } from "../../lib/api";
@@ -141,13 +141,13 @@ const Agenda = () => {
       message: `Deseja agendar esta consulta para o dia ${formNovo.data
         .split("-")
         .reverse()
-        .join("/")} às ${formNovo.hora}?`,
+        .join("/")} às ${formatTime(formNovo.hora)}?`,
       action: async () => {
         const [tutor_id, pet_id] = formNovo.pet_tutor.split("|");
         const success = await addAgendamentoVet({
           tutor_id: parseInt(tutor_id, 10),
           pet_id: parseInt(pet_id, 10),
-          data_hora: `${formNovo.data} ${formNovo.hora}`,
+          data_hora: `${formNovo.data} ${formatTime(formNovo.hora)}`,
           motivo_consulta: formNovo.motivo_consulta,
         });
 
@@ -228,7 +228,7 @@ const Agenda = () => {
                         isConcluido ? "text-slate-600" : "text-slate-900"
                       }`}
                     >
-                      {formatDateTime(ag.data_hora)}
+                      {weekdayName(ag.data_hora)} · {formatDateTime(ag.data_hora)}
                     </span>
                     <div
                       className={`hidden md:block w-3.5 h-3.5 rounded-full border-2 bg-white ${
@@ -368,6 +368,7 @@ const Agenda = () => {
             <input
               id="agenda-2"
               type="date"
+                  lang="pt-BR"
               min={localDate()}
               value={formNovo.data}
               onChange={(e) =>
@@ -395,7 +396,7 @@ const Agenda = () => {
                 <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                   {availableSlots.map((slot) => (
                     <button
-                      key={slot}
+                      key={formatTime(slot)}
                       aria-pressed={formNovo.hora === slot}
                       type="button"
                       onClick={() => setFormNovo({ ...formNovo, hora: slot })}
@@ -405,7 +406,7 @@ const Agenda = () => {
                           : "bg-white text-slate-700 border-slate-300 hover:border-brand-400"
                       }`}
                     >
-                      {slot}
+                      {formatTime(slot)}
                     </button>
                   ))}
                 </div>

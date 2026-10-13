@@ -34,3 +34,22 @@ export function formatDateTime(value) {
   const { data, hora } = dateTimeParts(value);
   return hora ? `${data} - ${hora}` : data;
 }
+
+export function weekdayName(value) {
+  const { data } = dateTimeParts(value);
+  if (!data) return "";
+  const [day, month, year] = data.split("/").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "long", timeZone: "UTC" }).format(date);
+}
+
+export function formatPeriod(value) {
+  if (typeof value !== "string") return "";
+  if (/^\d{4}$/.test(value)) return value;
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    const [year, month] = value.split("-").map(Number);
+    if (month < 1 || month > 12) return "";
+    return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
+  }
+  return dateTimeParts(value).data;
+}

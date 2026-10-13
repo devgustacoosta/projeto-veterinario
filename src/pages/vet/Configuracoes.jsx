@@ -151,6 +151,7 @@ const Configuracoes = () => {
                 <input
                   id="configuracoes-3"
                   type="time"
+                  lang="pt-BR"
                   value={formH.hora_inicio}
                   onChange={(e) =>
                     setFormH({ ...formH, hora_inicio: e.target.value })
@@ -170,6 +171,7 @@ const Configuracoes = () => {
                 <input
                   id="configuracoes-4"
                   type="time"
+                  lang="pt-BR"
                   value={formH.hora_fim}
                   onChange={(e) =>
                     setFormH({ ...formH, hora_fim: e.target.value })
@@ -275,6 +277,7 @@ const Configuracoes = () => {
                 <input
                   id="configuracoes-5"
                   type="datetime-local"
+                  lang="pt-BR"
                   value={formB.data_inicio}
                   onChange={(e) =>
                     setFormB({ ...formB, data_inicio: e.target.value })
@@ -293,6 +296,7 @@ const Configuracoes = () => {
                 <input
                   id="configuracoes-6"
                   type="datetime-local"
+                  lang="pt-BR"
                   value={formB.data_fim}
                   onChange={(e) =>
                     setFormB({ ...formB, data_fim: e.target.value })
